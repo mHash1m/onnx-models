@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
 import os
+import time
+from pathlib import Path
 import cv2
 import onnxruntime as ort
 import argparse
@@ -53,45 +55,49 @@ def faceDetector(orig_image, threshold = 0.7):
 # Main void
 
 def run_for_image(target):
-    image = f"/home/hash1m/facedet/{target}"
-    print(image)
+    image = target
+    file_name = Path(image).stem
     orig_image = cv2.imread(image)
     boxes, labels, probs = faceDetector(orig_image)
-    print(probs)
 
     for i in range(boxes.shape[0]):
-        print(probs[i])
         box = scale(boxes[i, :])
         cv2.rectangle(orig_image, (box[0], box[1]), (box[2], box[3]), COLOR, 4)
         cv2.putText(orig_image, str("%.2f" % round(probs[i], 2)), (box[0], box[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 229, 204), 2)
         # cv2.imshow('', orig_image)
-    cv2.imwrite(f"{image}_pred.jpg", orig_image)
+    cv2.imwrite(f"./results/{file_name}_pred.jpg", orig_image)
 
 def run_for_dir(target):
-    image_dir = f"/home/hash1m/facedet/{target}"
-    pred_dir = f"{target}_preds/"
+    image_dir = target
+    folder_name = os.path.basename(os.path.normpath(image_dir))
+    pred_dir = os.path.join("./results", f"{folder_name}_preds")
+    try:
+        os.mkdir(pred_dir)
+    except OSError as error:
+        print(str(error)[10:])
     images = os.listdir(image_dir)
     for image in images:
         img_path = os.path.join(image_dir, image)
         orig_image = cv2.imread(img_path)
         boxes, labels, probs = faceDetector(orig_image)
-
+        pred_image = Path(img_path).stem
         for i in range(boxes.shape[0]):
             box = scale(boxes[i, :])
             cv2.rectangle(orig_image, (box[0], box[1]), (box[2], box[3]), COLOR, 4)
             cv2.putText(orig_image, str("%.2f" % round(probs[i], 2)), (box[0], box[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 229, 204), 2)
             # cv2.imshow('', orig_image)
-        cv2.imwrite(f"{pred_dir}{image}_pred.jpg", orig_image)
+        cv2.imwrite(f"{pred_dir}/{pred_image}_pred.jpg", orig_image)
 
 def run_for_video(target):
-    vid = target
-    cap = cv2.VideoCapture(f"/home/hash1m/facedet/{vid}.mp4")
+    start_time = time.time()
+    cap = cv2.VideoCapture(target)
     fps, width, height = (int(cap.get(cv2.CAP_PROP_FPS)), int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
     # Define the codec and create VideoWriter object
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(f"/home/hash1m/facedet/{vid}_pred.mp4", fourcc, fps, (width, height))
-    i = 1
-    while(cap.isOpened()):
+    file_name = Path(target).stem
+    out = cv2.VideoWriter(f"./results/{file_name}_pred.mp4", fourcc, fps, (width, height))
+    counter = 1
+    while(cap.isOpened()):  
         ret, frame = cap.read()
         if ret == False:
             break
@@ -102,18 +108,22 @@ def run_for_video(target):
             cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), COLOR, 4)
             cv2.putText(frame, str("%.2f" % round(probs[i], 2)), (box[0], box[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 229, 204), 2)
         out.write(frame)
-        print(f"Frame # {i} predicted!")
-        i+=1
+        # print(f"Frame # {counter} predicted!")
+        counter+=1
+    print("Average FPS: ", counter / (time.time() - start_time))
     cap.release()
     cv2.destroyAllWindows()
 
 parser=argparse.ArgumentParser()
 parser.add_argument("-t", "--task", type=str, required=True, help="input type")
-parser.add_argument("-tg", "--target", type=str, required=True, help="walking or classroom")
+parser.add_argument("-tg", "--target", type=str, required=True, help="path to vid/image/dir")
 args=parser.parse_args()
 task = args.task
 target = args.target
-
+try:
+    os.mkdir("./results")
+except OSError as error:
+    print(str(error)[10:])
 if task == "video":
     run_for_video(target)
 elif task == "dir":
@@ -121,4 +131,4 @@ elif task == "dir":
 elif task == "image":
     run_for_image(target)
 else:
-    print("UNKNOWN TASK")
+    print("UNKNOWN TASK, should be 'video', 'dir', or 'image'")
