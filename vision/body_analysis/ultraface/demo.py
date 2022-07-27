@@ -17,7 +17,9 @@ face_detector_onnx = "../ultraface/models/version-RFB-640.onnx"
 # based on the build flags) when instantiating InferenceSession.
 # For example, if NVIDIA GPU is available and ORT Python package is built with CUDA, then call API as following:
 # ort.InferenceSession(path/to/model, providers=['CUDAExecutionProvider'])
-face_detector = ort.InferenceSession(face_detector_onnx)
+
+face_detector = ort.InferenceSession(face_detector_onnx, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider'])
+# face_detector = ort.InferenceSession(face_detector_onnx, providers=['CUDAExecutionProvider'])
 
 COLOR = (204, 102, 0)
 # scale current rectangle to box
@@ -110,6 +112,7 @@ def run_for_video(target):
         out.write(frame)
         # print(f"Frame # {counter} predicted!")
         counter+=1
+    print("Video Width = ", int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), ", Video Height = ", int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
     print("Average FPS: ", counter / (time.time() - start_time))
     cap.release()
     cv2.destroyAllWindows()
